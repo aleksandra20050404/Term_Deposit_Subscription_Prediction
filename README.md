@@ -9,7 +9,6 @@
 **Aleksandra Vislova**
 
 [![LinkedIn](https://img.shields.io/badge/-LinkedIn-0072b1?&style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/aleksandra-vislova-a51ba9297)
-
 ---
 
 ## Files in This Repository
@@ -45,7 +44,7 @@
 Portuguese banking institutions run direct telemarketing campaigns to promote term deposit subscriptions — a call center contacts existing clients and offers them a term deposit product. Each call is costly, and not every client is equally likely to say yes. This project builds a classification model that predicts, **before a client is called**, how likely they are to subscribe, so the marketing team can prioritize outreach.
 
 ### Objectives
-- Predict term deposit subscription (`deposit`: yes/no) from client demographic, financial, and campaign-contact attributes.
+- Predict term deposit subscription (yes/no) from client demographic, financial, and campaign-contact attributes.
 - Compare multiple classification algorithms on a consistent train/test split and metric set.
 - Translate model performance into two distinct business strategies — acquisition-maximizing vs. budget-efficient — rather than a single "best" model.
 - Ship a reusable preprocessing pipeline and a selected model so the recommendation can be deployed against new client lists.
@@ -66,13 +65,20 @@ Portuguese banking institutions run direct telemarketing campaigns to promote te
 ## Methodology
 
 1. **Data extraction** — pulled directly from OpenML via the `openml` Python client.
-2. **Data quality checks** — confirmed no missing values and checked for duplicate rows.
-3. **Leakage prevention** — the `duration` column (call length) was dropped, since it's only known *after* a call ends and would leak future information into a model meant to prioritize calls *before* they happen.
-4. **Feature engineering** — derived `was_contacted` (binary) from `pdays`, since `pdays = -1` is a sentinel meaning "never contacted before," not a numeric distance; the raw `pdays` column is dropped afterward to avoid double-counting that signal.
-5. **Encoding** — a `ColumnTransformer` applies one-hot encoding to nominal features (job, marital status, default, housing, loan, contact type, month, previous outcome), ordinal encoding to `education` (with `unknown` imputed to the most frequent known category and tracked separately as `education_unknown`, rather than ranked above `tertiary`), and standard scaling to numeric features (age, balance, campaign, previous). `day` (day of month contacted) is cyclically encoded as `day_sin`/`day_cos` rather than scaled directly, since day-of-month wraps around (day 31 is close to day 1, not far from it) and a plain numeric scale would misrepresent that. The transformer was fit only on the training set and reused to transform the test set, avoiding data leakage. It's saved to `preprocessor.pkl` so new data can be encoded identically at inference time.
-6. **Train/test split** — stratified 70/30 split (7,813 train / 3,349 test rows) to preserve the original class balance in both sets.
-7. **Modeling** — six classifiers trained and compared on identical splits: Naive Bayes, K-Nearest Neighbors, Logistic Regression, Decision Tree, Random Forest, and Gradient Boosting.
-8. **Model selection** — rather than picking one "winner," the two top performers were mapped to two different business goals (see [Business Recommendations](#business-recommendations)).
+2. 
+3. **Data quality checks** — confirmed no missing values and checked for duplicate rows.
+   
+4. **Leakage prevention** — the `duration` column (call length) was dropped, since it's only known *after* a call ends and would leak future information into a model meant to prioritize calls *before* they happen.
+
+6. **Feature engineering** — derived `was_contacted` (binary) from `pdays`, since `pdays = -1` is a sentinel meaning "never contacted before," not a numeric distance; the raw `pdays` column is dropped afterward to avoid double-counting that signal.
+
+7. **Encoding** — a `ColumnTransformer` applies one-hot encoding to nominal features, ordinal encoding to `education` (with `unknown` imputed to the most frequent known category, standard scaling to numeric features . `day` (day of month contacted) is cyclically encoded as `day_sin`/`day_cos` .
+
+8. **Train/test split** — stratified 70/30 split (7,813 train / 3,349 test rows).
+   
+9. **Modeling** — six classifiers trained and compared on identical splits: Naive Bayes, K-Nearest Neighbors, Logistic Regression, Decision Tree, Random Forest, and Gradient Boosting.
+
+10. **Model selection** — two top performers were mapped to two different business goals (see [Business Recommendations](#business-recommendations)).
 
 ---
 
@@ -80,20 +86,20 @@ Portuguese banking institutions run direct telemarketing campaigns to promote te
 
 ### 1. Target Distribution
 
-The dataset is close to balanced: **5,873 clients (52.6%) did not subscribe, and 5,289 clients (47.4%) did subscribe** to a term deposit. This is a meaningfully different balance from the commonly-cited "bank-marketing" dataset (which is closer to 88/12) — this particular sample (OpenML ID 43718) is far more even, which is why plain accuracy is a reasonably informative metric here, though precision/recall still matter for the business trade-offs below.
-
+The dataset is balanced: **5,873 clients (52.6%) did not subscribe, and 5,289 clients (47.4%) did subscribe** to a term deposit.
 ![Target_Distribution](https://github.com/aleksandra20050404/Customer_Subscription_Prediction/blob/main/img/eda/target_distribution.png)
 
 ### 2. Categorical Feature Distributions
 
 ![Categorical_Features](https://github.com/aleksandra20050404/Customer_Subscription_Prediction/blob/main/img/eda/eda_categorical.png)
 
-- **`poutcome`**: 74.6% of clients (8,326) have `unknown` prior outcome — most clients were never part of a previous campaign. Only 9.6% (1,071) had a prior `success`.
-- **`contact`**: 72% (8,042) were contacted by cellular, vs. 21% unknown and 7% telephone.
+
+- **`poutcome`**: 8,326 have `unknown` prior outcome — most clients were never part of a previous campaign. Only 1,071 had a prior `success`.
+- **`contact`**: 8,042 were contacted by cellular, vs. 21% unknown and 7% telephone.
 - **`month`**: heavily concentrated in May (2,824, ~25% of all contacts), tapering sharply through the rest of the year (December has only 110).
-- **`default`**: 98.5% "no" (10,994 vs. 168 "yes") — very little variance in this feature.
-- **`education`**: `unknown` accounts for 497 rows (4.5%) — the reason the ordinal encoding needed the fix described above.
-- **`housing`** (53%/47%) and **`loan`** (87%/13%) are more balanced binary splits.
+- **`default`**: "no" 10,994 vs. 168 "yes" — very little variance in this feature.
+- **`education`**: `unknown` accounts for 497 rows (4.5%) —  `unknown` will be imputed the most frequent known category
+- **`housing`** and **`loan`** are more balanced binary splits.
 
 ### 3. Numeric Features vs. Target (Box Plots)
 
@@ -101,7 +107,7 @@ The dataset is close to balanced: **5,873 clients (52.6%) did not subscribe, and
 ![Numeric_Features](https://github.com/aleksandra20050404/Customer_Subscription_Prediction/blob/main/img/eda//box_plots.png)
 
 
-- **`age`**: medians are nearly identical between subscribers (~38) and non-subscribers (~39) with heavily overlapping IQRs — little linear separation by deposit status in this view; if age matters, it's likely a non-monotonic (U-shaped) relationship a boxplot can't reveal.
+- **`age`**: medians are nearly identical between subscribers (~38) and non-subscribers (~39) with heavily overlapping IQRs — little linear separation by deposit status in this view; 
 - **`balance`**: both classes are dominated by extreme right-tail outliers (up to ~€80k); medians sit close together near the low end, with the outliers visually overwhelming the box itself.
 - **`campaign`**: both groups cluster at low contact counts (median ~2–3) with a long outlier tail (30+ calls) — no strong separation by median, consistent with a "contact fatigue" story rather than "more calls = more success."
 - **`pdays`**: the clearest numeric signal in the set — subscribers ("yes") show a visibly higher box (up to ~100 days) while non-subscribers cluster near 0, reinforcing the `poutcome`/`was_contacted` pattern that prior contact correlates with subscribing again.
@@ -114,15 +120,6 @@ The dataset is close to balanced: **5,873 clients (52.6%) did not subscribe, and
 ### Model Comparison
 
 ![Model Performance Comparison](https://github.com/aleksandra20050404/Customer_Subscription_Prediction/blob/main/img/outputs/models_summary.png)
-
-| Model | Accuracy | Precision | Recall | F1-Score | ROC-AUC |
-|---|---|---|---|---|---|
-| Gradient Boosting | 0.7348 | **0.7853** | 0.6062 | 0.6842 | **0.7892** |
-| Random Forest | 0.7154 | 0.7355 | **0.6238** | 0.6751 | 0.7713 |
-| Logistic Regression | 0.7008 | 0.7403 | 0.5677 | 0.6427 | 0.7599 |
-| Naive Bayes | 0.6844 | 0.7529 | 0.4972 | 0.5989 | 0.7395 |
-| K-Nearest Neighbors | 0.6793 | 0.6876 | 0.5923 | 0.6364 | 0.7179 |
-| Decision Tree | 0.6226 | 0.6013 | 0.6043 | 0.6028 | 0.6217 |
 
 **Key insight:** Gradient Boosting leads on precision, F1, and ROC-AUC; Random Forest leads on recall. Both tree ensembles clearly outperform the simpler baselines. Naive Bayes is a notable middle case — its precision (0.7529) is second-highest in the table, close to Gradient Boosting's, but its recall (0.4972) is the worst of all six models. That combination is consistent with Naive Bayes' independence assumption being violated by this data (several encoded features are correlated — e.g. `previous`/`was_contacted` at 0.62 — which tends to make Naive Bayes overconfident on the cases it does flag, while missing many true positives entirely). Decision Tree, as expected for a single unpruned tree, trails every ensemble and baseline on nearly every metric — its main value here is as a reference point showing what one high-variance tree looks like next to 100+ trees averaged together in the ensembles above it.
 
@@ -172,28 +169,21 @@ The model is well-calibrated across most of the probability range — points tra
 | `previous` | 0.026 |
 | `housing_no` | 0.018 |
 
-`day` (day of month contacted) is encoded cyclically here as `day_sin`/`day_cos` rather than as a single scaled number; feature importance is more than `campaign` and `poutcome_success` combined. That rules out the original importance being an artifact of a flawed encoding; if anything, the flawed linear encoding was understating a real pattern. Day-of-month, correctly represented, is now one of the strongest predictors in the model, sitting between `age` and `balance` — plausibly tied to payday or billing-cycle timing, a legitimate and actionable finding rather than something to be suspicious of.
-
-`balance` and `age` remain the top two individual features either way, and together with the day-of-month signal, numeric/temporal features clearly outweigh the categorical ones — `poutcome_success`, despite being the feature that most directly signals "this client responded well before," still ranks behind all of them.
-
+`day` (day of month contacted) is encoded cyclically  as `day_sin`/`day_cos` rather than as a single scaled number; feature importance is more than `campaign` and `poutcome_success` combined.  Day-of-month is one of the strongest predictors in the model, sitting between `age` and `balance` — plausibly tied to payday or billing-cycle timing, a legitimate and actionable finding. `balance` and `age` remain the top two individual features either way, and together with the day-of-month signal, numeric/temporal features clearly outweigh the categorical ones — `poutcome_success`, despite being the feature that most directly signals that client responded well before, still ranks behind all of them.
 ---
 
 ## Business Recommendations
 
 Two different business goals point to two different models:
 
-| Goal | Recommended Model | Why |
+| Goal | Recommended Model | Reason |
 |---|---|---|
 | **Customer Acquisition** — find as many likely subscribers as possible | **Random Forest** | Highest recall (62.4%) — catches more true subscribers, at the cost of more false positives (wasted calls) |
 | **Marketing Budget Optimization** — only call people who will likely say yes | **Gradient Boosting** | Highest precision (78.5%) and ROC-AUC (0.789) — when it predicts "yes," it's right about 4 times out of 5, minimizing wasted call volume |
 
 The deployed model in this repository (`acquisition_model.pkl`) is the **Random Forest**, reflecting a customer-acquisition priority. If the business goal shifts toward budget efficiency, retrain and ship the Gradient Boosting model instead.
 
-Worth noting: Naive Bayes' precision (0.753) is close to Gradient Boosting's, so it might look tempting as a lighter-weight alternative — but its recall (0.497) is by far the worst in the comparison, meaning it would miss roughly half of all actual subscribers. It isn't a reasonable substitute for either business goal here.
-
-### Top Predictive Features (Random Forest)
-
-Based on `feature_importances_` from the deployed model, the strongest predictors of subscription are `balance`, `age`, day-of-month (encoded cyclically as `day_sin`/`day_cos`), and `campaign` (number of contacts) — the numeric client/contact attributes — followed by `poutcome_success`, `education`, and contact method. This is a useful correction to the intuitive assumption that "having succeeded before" would dominate the model; in practice, this Random Forest leans more heavily on financial, demographic, and timing signals. The day-of-month result in particular is worth highlighting to stakeholders: it suggests scheduling outreach around specific points in the month (e.g. paydays) may be as impactful as anything else in the model.
+Naive Bayes' precision (0.753) is close to Gradient Boosting's, so it might look tempting as a lighter-weight alternative — but its recall (0.497) is by far the worst in the comparison, meaning it would miss roughly half of all actual subscribers. It isn't a reasonable substitute for either business goal here.
 
 ---
 
@@ -207,9 +197,22 @@ Based on `feature_importances_` from the deployed model, the strongest predictor
 | **Train / test split** | 7,813 / 3,349 (stratified 70/30) |
 | **Best precision & ROC-AUC** | Gradient Boosting (78.5% / 0.789) |
 | **Best recall** | Random Forest (62.4%) |
-| **Top feature** | `balance` (importance 0.143); day-of-month (`day_sin`+`day_cos`, combined 0.166) is the strongest signal once correctly encoded |
-| **Deployed model** | Random Forest (`acquisition_model.pkl`), tuned for acquisition |
 
+
+| Model | Accuracy | Precision | Recall | F1-Score | ROC-AUC |
+|---|---|---|---|---|---|
+| Gradient Boosting | 0.7348 | **0.7853** | 0.6062 | 0.6842 | **0.7892** |
+| Random Forest | 0.7154 | 0.7355 | **0.6238** | 0.6751 | 0.7713 |
+| Logistic Regression | 0.7008 | 0.7403 | 0.5677 | 0.6427 | 0.7599 |
+| Naive Bayes | 0.6844 | 0.7529 | 0.4972 | 0.5989 | 0.7395 |
+| K-Nearest Neighbors | 0.6793 | 0.6876 | 0.5923 | 0.6364 | 0.7179 |
+| Decision Tree | 0.6226 | 0.6013 | 0.6043 | 0.6028 | 0.6217 |
+
+**Key insight:** Gradient Boosting leads on precision, F1, and ROC-AUC; Random Forest leads on recall. Both tree ensembles clearly outperform the simpler baselines. Naive Bayes is a notable middle case — its precision (0.7529) is second-highest in the table, close to Gradient Boosting's, but its recall (0.4972) is the worst of all six models. That combination is consistent with Naive Bayes' independence assumption being violated by this data (several encoded features are correlated — e.g. `previous`/`was_contacted` at 0.62 — which tends to make Naive Bayes overconfident on the cases it does flag, while missing many true positives entirely). Decision Tree, as expected for a single unpruned tree, trails every ensemble and baseline on nearly every metric — its main value here is as a reference point showing what one high-variance tree looks like next to 100+ trees averaged together in the ensembles above it.
+
+### Top Predictive Features (Random Forest)
+
+Based on feature_importances from the deployed model, the strongest predictors of subscription are `balance`, `age`, day-of-month (encoded cyclically as `day_sin`/`day_cos`), and `campaign` (number of contacts) — the numeric client/contact attributes — followed by `poutcome_success`, `education`, and contact method. This is a useful correction to the intuitive assumption that "having succeeded before" would dominate the model; in practice, this Random Forest leans more heavily on financial, demographic, and timing signals. The day-of-month result in particular is worth highlighting: it suggests scheduling outreach around specific points in the month (e.g. paydays) may be as impactful as anything else in the model.
 ---
 
 ## Requirements
