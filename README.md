@@ -65,20 +65,20 @@ Portuguese banking institutions run direct telemarketing campaigns to promote te
 ## Methodology
 
 1. **Data extraction** — pulled directly from OpenML via the `openml` Python client.
-2. 
-3. **Data quality checks** — confirmed no missing values and checked for duplicate rows.
    
-4. **Leakage prevention** — the `duration` column (call length) was dropped, since it's only known *after* a call ends and would leak future information into a model meant to prioritize calls *before* they happen.
-
-6. **Feature engineering** — derived `was_contacted` (binary) from `pdays`, since `pdays = -1` is a sentinel meaning "never contacted before," not a numeric distance; the raw `pdays` column is dropped afterward to avoid double-counting that signal.
-
-7. **Encoding** — a `ColumnTransformer` applies one-hot encoding to nominal features, ordinal encoding to `education` (with `unknown` imputed to the most frequent known category, standard scaling to numeric features . `day` (day of month contacted) is cyclically encoded as `day_sin`/`day_cos` .
-
-8. **Train/test split** — stratified 70/30 split (7,813 train / 3,349 test rows).
+2.  **Data quality checks** — confirmed no missing values and checked for duplicate rows.
    
-9. **Modeling** — six classifiers trained and compared on identical splits: Naive Bayes, K-Nearest Neighbors, Logistic Regression, Decision Tree, Random Forest, and Gradient Boosting.
+3. **Leakage prevention** — the `duration` column (call length) was dropped, since it's only known *after* a call ends and would leak future information into a model meant to prioritize calls *before* they happen.
 
-10. **Model selection** — two top performers were mapped to two different business goals (see [Business Recommendations](#business-recommendations)).
+4. **Feature engineering** — derived `was_contacted` (binary) from `pdays`, since `pdays = -1` is a sentinel meaning "never contacted before," not a numeric distance; the raw `pdays` column is dropped afterward to avoid double-counting that signal.
+
+5. **Encoding** — a `ColumnTransformer` applies one-hot encoding to nominal features, ordinal encoding to `education` (with `unknown` imputed to the most frequent known category, standard scaling to numeric features . `day` (day of month contacted) is cyclically encoded as `day_sin`/`day_cos` .
+
+6. **Train/test split** — stratified 70/30 split (7,813 train / 3,349 test rows).
+   
+7. **Modeling** — six classifiers trained and compared on identical splits: Naive Bayes, K-Nearest Neighbors, Logistic Regression, Decision Tree, Random Forest, and Gradient Boosting.
+
+8. **Model selection** — two top performers were mapped to two different business goals (see [Business Recommendations](#business-recommendations)).
 
 ---
 
@@ -156,20 +156,7 @@ The model is well-calibrated across most of the probability range — points tra
 
 ![Feature Importance](https://github.com/aleksandra20050404/Customer_Subscription_Prediction/blob/main/img/outputs/feature_importance.png)
 
-| Feature | Importance |
-|---|---|
-| `balance` | 0.143 |
-| `age` | 0.125 |
-| `day_sin` | 0.089 |
-| `day_cos` | 0.077 |
-| `campaign` (number of contacts this campaign) | 0.061 |
-| `poutcome_success` | 0.036 |
-| `education` | 0.031 |
-| `contact_unknown` | 0.029 |
-| `previous` | 0.026 |
-| `housing_no` | 0.018 |
-
-`day` (day of month contacted) is encoded cyclically  as `day_sin`/`day_cos` rather than as a single scaled number; feature importance is more than `campaign` and `poutcome_success` combined.  Day-of-month is one of the strongest predictors in the model, sitting between `age` and `balance` — plausibly tied to payday or billing-cycle timing, a legitimate and actionable finding. `balance` and `age` remain the top two individual features either way, and together with the day-of-month signal, numeric/temporal features clearly outweigh the categorical ones — `poutcome_success`, despite being the feature that most directly signals that client responded well before, still ranks behind all of them.
+##### `day` (day of month contacted) is encoded cyclically  as `day_sin`/`day_cos` rather than as a single scaled number; feature importance is more than `campaign` and `poutcome_success` combined.  Day-of-month is one of the strongest predictors in the model, sitting between `age` and `balance` — plausibly tied to payday or billing-cycle timing, a legitimate and actionable finding. `balance` and `age` remain the top two individual features either way, and together with the day-of-month signal, numeric/temporal features clearly outweigh the categorical ones — `poutcome_success`, despite being the feature that most directly signals that client responded well before, still ranks behind all of them.
 ---
 
 ## Business Recommendations
@@ -211,8 +198,7 @@ Naive Bayes' precision (0.753) is close to Gradient Boosting's, so it might look
 **Key insight:** Gradient Boosting leads on precision, F1, and ROC-AUC; Random Forest leads on recall. Both tree ensembles clearly outperform the simpler baselines. Naive Bayes is a notable middle case — its precision (0.7529) is second-highest in the table, close to Gradient Boosting's, but its recall (0.4972) is the worst of all six models. That combination is consistent with Naive Bayes' independence assumption being violated by this data (several encoded features are correlated — e.g. `previous`/`was_contacted` at 0.62 — which tends to make Naive Bayes overconfident on the cases it does flag, while missing many true positives entirely). Decision Tree, as expected for a single unpruned tree, trails every ensemble and baseline on nearly every metric — its main value here is as a reference point showing what one high-variance tree looks like next to 100+ trees averaged together in the ensembles above it.
 
 ### Top Predictive Features (Random Forest)
-
-Based on feature_importances from the deployed model, the strongest predictors of subscription are `balance`, `age`, day-of-month (encoded cyclically as `day_sin`/`day_cos`), and `campaign` (number of contacts) — the numeric client/contact attributes — followed by `poutcome_success`, `education`, and contact method. This is a useful correction to the intuitive assumption that "having succeeded before" would dominate the model; in practice, this Random Forest leans more heavily on financial, demographic, and timing signals. The day-of-month result in particular is worth highlighting: it suggests scheduling outreach around specific points in the month (e.g. paydays) may be as impactful as anything else in the model.
+##### Based on feature importances from the deployed model, the strongest predictors of subscription are `balance`, `age`, day-of-month (encoded cyclically as `day_sin`/`day_cos`), and `campaign` (number of contacts) — the numeric client/contact attributes — followed by `poutcome_success`, `education`, and contact method. This is a useful correction to the intuitive assumption that "having succeeded before" would dominate the model; in practice, this Random Forest leans more heavily on financial, demographic, and timing signals. The day-of-month result in particular is worth highlighting: it suggests scheduling outreach around specific points in the month (e.g. paydays) may be as impactful as anything else in the model.
 ---
 
 ## Requirements
